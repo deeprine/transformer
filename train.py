@@ -13,6 +13,8 @@ import pandas as pd
 import os
 import argparse
 
+from tqdm import tqdm
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
@@ -37,16 +39,23 @@ def train(arg):
     dataset_valid = os.path.join(arg.datasets, 'wmt14_translate_de-en_validation.csv')
     dataset_test = os.path.join(arg.datasets, 'wmt14_translate_de-en_test.csv')
 
-    # full_df = pd.concat([
-    #     pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_train.csv',lineterminator='\n'),
-    #     pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_validation.csv',lineterminator='\n'),
-    #     pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_test.csv',lineterminator='\n')
-    # ])
+    print('train datasets path - ',dataset_train)
+    print('valid datasets path - ',dataset_valid)
+    print('test datasets path - ',dataset_test)
 
-    full_df = dataset_train[:5000]
+    train = pd.read_csv(dataset_train,lineterminator='\n')
+    validation = pd.read_csv(dataset_valid,lineterminator='\n')
+    test = pd.read_csv(dataset_test,lineterminator='\n')
+
+    full_df = pd.concat([
+        train,
+        validation,
+        test
+    ])
+
+    full_df = full_df[:5000]
 
     tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
-
     dataset = TranslationDataset(full_df, tokenizer, max_len)
     train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
@@ -71,8 +80,8 @@ def train(arg):
 
     for e in range(epoch):
         total_loss = 0
-
-        for data in train_dataloader:
+        print('epoch Number : ', e+1)
+        for data in tqdm(train_dataloader):
             src_ids = data['input_ids'].to(device)
             src_attention_mask = data['input_attention_mask'].to(device)
 
@@ -112,8 +121,8 @@ def args():
     parser.add_argument('--d_model', type=int, default=512)
     parser.add_argument('--repeat_n', type=int, default=6)
     parser.add_argument('--num_heads', type=str, default=8)
-    parser.add_argument('--batch_size', type=int, default=4)
-    parser.add_argument('--vocal_size', type=int, default=20000)
+    parser.add_argument('--batch_size', type=int, default=2)
+    parser.add_argument('--vocab_size', type=int, default=200000)
     parser.add_argument('--lr', type=int, default=0.001)
 
     args = parser.parse_args()
