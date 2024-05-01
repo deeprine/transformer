@@ -43,4 +43,3 @@ This repository contains a PyTorch implementation of the Transformer model, a st
 ## References
 
 - [Attention Is All You Need (Transformer Paper)](https://arxiv.org/abs/1706.03762)
-- [PyTorch Official Documentation](https://pytorch.org/do
