@@ -4,13 +4,10 @@
 
 This repository contains a PyTorch implementation of the Transformer model, a state-of-the-art architecture in natural language processing and machine translation. The Transformer model has gained significant popularity due to its parallelization capabilities and superior performance.
 
-## Key Features
+## Datasets
 
-- **Encoder and Decoder Architecture**: The repository includes modules for both encoder and decoder layers, featuring self-attention mechanisms.
-
-- **Tokenization**: A tokenization module is provided for preprocessing input text data, enabling efficient embedding and model input preparation.
-
-- **Training and Evaluation**: The repository provides scripts for training the Transformer model on custom datasets, along with evaluation scripts to assess model performance using standard metrics.
+- Download the URL below 
+- https://www.kaggle.com/datasets/mohamedlotfy50/wmt-2014-english-german
 
 ## Usage
 
