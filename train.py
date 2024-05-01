@@ -11,99 +11,116 @@ from utils import *
 
 import pandas as pd
 import os
+import argparse
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-max_len = 256
-d_model = 512
-num_heads = 8
-batch_size = 4
-repeat_N = 6
-vocab_size = 200000
-is_train = False
+def train(arg):
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    max_len = arg.max_len
+    d_model = arg.d_model
+    num_heads = arg.num_heads
+    batch_size = arg.batch_size
+    repeat_N = arg.repeat_n
+    vocab_size = arg.vocab_size
 
-full_df = pd.concat([
-    pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_train.csv',lineterminator='\n'),
-    pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_validation.csv',lineterminator='\n'),
-    pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_test.csv',lineterminator='\n')
-])
+    learning_rate = arg.lr
+    epoch = arg.epoch
 
-full_df = full_df[:5000]
+    is_train = True
 
-# DataLoader에 사용할 토크나이저 초기화
-tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-dataset = TranslationDataset(full_df, tokenizer, max_len)
-train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    save_model_path = arg.save_model
+    dataset_train = os.path.join(arg.datasets, 'wmt14_translate_de-en_train.csv')
+    dataset_valid = os.path.join(arg.datasets, 'wmt14_translate_de-en_validation.csv')
+    dataset_test = os.path.join(arg.datasets, 'wmt14_translate_de-en_test.csv')
 
-# DataLoader를 통한 데이터 샘플 확인
-# for batch in train_dataloader:
-#     input_ids = batch['input_ids']
-#     input_attention_mask = batch['input_attention_mask']
-#
-#     output_ids = batch['output_ids']
-#     output_attention_mask = batch['output_attention_mask']
+    # full_df = pd.concat([
+    #     pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_train.csv',lineterminator='\n'),
+    #     pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_validation.csv',lineterminator='\n'),
+    #     pd.read_csv('/home/yongseong/Downloads/archive/wmt14_translate_de-en_test.csv',lineterminator='\n')
+    # ])
 
-    # print(input_ids)
-    # print("Input IDs Shape:", input_ids.shape)
-    # print("Attention Mask Shape:", input_attention_mask.shape)
-    # break  # 첫 번째 배치만 확인
+    full_df = dataset_train[:5000]
 
-model = Transformer(
-    is_train=True,
-    max_len=max_len,
-    d_model=d_model,
-    num_heads=num_heads,
-    batch_size=batch_size,
-    repeat_N=repeat_N,
-    vocab_size=vocab_size,
-    device=device
-)
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
-model.to(device)
-model.apply(initialize_weights)
+    dataset = TranslationDataset(full_df, tokenizer, max_len)
+    train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-model.train()
-# Adam 옵티마이저 초기화
-learning_rate = 0.001
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-criterion = nn.CrossEntropyLoss()
+    model = Transformer(
+        is_train=True,
+        max_len=max_len,
+        d_model=d_model,
+        num_heads=num_heads,
+        batch_size=batch_size,
+        repeat_N=repeat_N,
+        vocab_size=vocab_size,
+        device=device
+    )
 
-epoch = 10
+    model.to(device)
+    model.apply(initialize_weights)
 
-# warmup and label smooting 구현
+    model.train()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.CrossEntropyLoss()
+    # warmup and label smooting 구현예정
 
-for e in range(epoch):
-    total_loss = 0
+    for e in range(epoch):
+        total_loss = 0
 
-    for data in train_dataloader:
-        src_ids = data['input_ids'].to(device)
-        src_attention_mask = data['input_attention_mask'].to(device)
+        for data in train_dataloader:
+            src_ids = data['input_ids'].to(device)
+            src_attention_mask = data['input_attention_mask'].to(device)
 
-        label_ids = data['output_ids'].to(device)
-        label_attention_mask = data['output_attention_mask'].to(device)
+            label_ids = data['output_ids'].to(device)
+            label_attention_mask = data['output_attention_mask'].to(device)
 
-        # print(input_attention_mask)
-        # print(output_attention_mask)
+            # print(input_attention_mask)
+            # print(output_attention_mask)
 
-        outputs = model(src_ids, label_ids, label_attention_mask)
-        # outputs = torch.argmax(outputs, dim=-1)
+            outputs = model(src_ids, label_ids, label_attention_mask)
+            # outputs = torch.argmax(outputs, dim=-1)
 
-        # output_reshape = outputs.contiguous().view(-1, outputs.shape[-1])
-        # output_ids = output_ids[:, :].contiguous().view(-1)
+            # output_reshape = outputs.contiguous().view(-1, outputs.shape[-1])
+            # output_ids = output_ids[:, :].contiguous().view(-1)
 
-        outputs = outputs.view(-1, vocab_size)
-        label_ids = label_ids.view(-1)
+            outputs = outputs.view(-1, vocab_size)
+            label_ids = label_ids.view(-1)
 
-        loss = criterion(outputs, label_ids)
-        optimizer.zero_grad()
-        loss.backward()
+            loss = criterion(outputs, label_ids)
+            optimizer.zero_grad()
+            loss.backward()
 
-        optimizer.step()
+            optimizer.step()
 
-        total_loss += loss.item()
+            total_loss += loss.item()
 
-    avg_loss = total_loss / len(train_dataloader)
-    print("Average Loss:", avg_loss)
+        avg_loss = total_loss / len(train_dataloader)
+        print("Average Loss:", avg_loss)
+
+def args():
+    parser = argparse.ArgumentParser(description='image merge')
+
+    parser.add_argument('--datasets', type=str, default='/home/yongseong/Downloads/archive/')
+    parser.add_argument('--save_model', type=str, default='/home/yongseong/Downloads/archive/save_model')
+    parser.add_argument('--epoch', type=int, default=10)
+    parser.add_argument('--max_len', type=int, default=256)
+    parser.add_argument('--d_model', type=int, default=512)
+    parser.add_argument('--repeat_n', type=int, default=6)
+    parser.add_argument('--num_heads', type=str, default=8)
+    parser.add_argument('--batch_size', type=int, default=4)
+    parser.add_argument('--vocal_size', type=int, default=20000)
+    parser.add_argument('--lr', type=int, default=0.001)
+
+    args = parser.parse_args()
+
+    return args
+
+if __name__ == '__main__':
+    arg = args()
+    train(arg)
+
