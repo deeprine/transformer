@@ -32,22 +32,27 @@ class Decoder(nn.Module):
       self.dropout3 = nn.Dropout(0.1)
       self.dropout4 = nn.Dropout(0.1)
 
-    def forward(self, encoder_src, target, target_mask):
+    def forward(self, encoder_src, target, target_mask, target_pad_mask, n, repeat_n):
       # src -> (batch_size, seq_len)
-        embedding = self.embedding(target)
+        if n != 0:
+            embedding = target
+
+        if n == 0:
+            embedding = self.embedding(target)
+
+            positional_encoding = self.positional_encoding(target)
+            positional_encoding = torch.einsum('bc->cb', positional_encoding)
+
+            embedding += positional_encoding
+
         embedding = self.dropout1(embedding)
-
-        positional_encoding = self.positional_encoding(target)
-        positional_encoding = torch.einsum('bc->cb', positional_encoding)
-
-        embedding += positional_encoding
         q, k, v = embedding, encoder_src, encoder_src
 
         result, att = self.multi_head_attention(q, k, v, is_mask=target_mask)
         result = self.dropout2(result)
         add_norm_1 = self.layer_norm(result, embedding)
 
-        result, att = self.multi_head_attention(add_norm_1, add_norm_1, add_norm_1)
+        result, att = self.multi_head_attention(add_norm_1, add_norm_1, add_norm_1, is_mask=target_pad_mask)
         result = self.dropout3(result)
         add_norm_2 = self.layer_norm(result, add_norm_1)
 
@@ -55,9 +60,11 @@ class Decoder(nn.Module):
         ffn_result = self.dropout4(ffn_result)
         add_norm_3 = self.layer_norm(ffn_result, add_norm_2)
 
-        linear_result = self.linear(add_norm_3)
-
-        return linear_result
+        if n == (repeat_n - 1):
+            linear_result = self.linear(add_norm_3)
+            return linear_result
+        else:
+            return add_norm_3
 
 # max_len = 30
 # d_model = 512

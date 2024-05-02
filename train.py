@@ -20,12 +20,15 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def train(arg):
 
-    max_len = arg.max_len
+    src_max_len = arg.src_max_len
+    src_vocab_size = arg.src_vocab_size
+    target_max_len = arg.target_max_len
+    target_vocab_size = arg.target_vocab_size
+
     d_model = arg.d_model
     num_heads = arg.num_heads
     batch_size = arg.batch_size
     repeat_N = arg.repeat_n
-    vocab_size = arg.vocab_size
 
     learning_rate = arg.lr
     epoch = arg.epoch
@@ -55,18 +58,34 @@ def train(arg):
 
     full_df = full_df[:5000]
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
-    dataset = TranslationDataset(full_df, tokenizer, max_len)
+    src_tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    src_pad_token_id = src_tokenizer.pad_token_id
+
+    target_tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    target_pad_token_id = target_tokenizer.pad_token_id
+
+    dataset = TranslationDataset(
+        full_df,
+        src_tokenizer,
+        target_tokenizer,
+        src_max_len,
+        target_max_len
+    )
+
     train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model = Transformer(
         is_train=True,
-        max_len=max_len,
+        src_pad_token_id = src_pad_token_id,
+        target_pad_token_id = target_pad_token_id,
+        src_max_len=src_max_len,
+        target_max_len=target_max_len,
+        src_vocab_size=src_vocab_size,
+        target_vocab_size=target_vocab_size,
         d_model=d_model,
         num_heads=num_heads,
         batch_size=batch_size,
         repeat_N=repeat_N,
-        vocab_size=vocab_size,
         device=device
     )
 
@@ -75,7 +94,7 @@ def train(arg):
 
     model.train()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(ignore_index = target_pad_token_id)
     # warmup and label smooting 구현예정
 
     for e in range(epoch):
@@ -88,16 +107,13 @@ def train(arg):
             label_ids = data['output_ids'].to(device)
             label_attention_mask = data['output_attention_mask'].to(device)
 
-            # print(input_attention_mask)
-            # print(output_attention_mask)
-
-            outputs = model(src_ids, label_ids, label_attention_mask)
+            outputs = model(src_ids, label_ids, src_attention_mask, label_attention_mask)
             # outputs = torch.argmax(outputs, dim=-1)
 
             # output_reshape = outputs.contiguous().view(-1, outputs.shape[-1])
             # output_ids = output_ids[:, :].contiguous().view(-1)
 
-            outputs = outputs.view(-1, vocab_size)
+            outputs = outputs.view(-1, target_vocab_size)
             label_ids = label_ids.view(-1)
 
             loss = criterion(outputs, label_ids)
@@ -117,12 +133,14 @@ def args():
     parser.add_argument('--datasets', type=str, default='/home/yongseong/Downloads/archive/')
     parser.add_argument('--save_model', type=str, default='/home/yongseong/Downloads/archive/save_model')
     parser.add_argument('--epoch', type=int, default=10)
-    parser.add_argument('--max_len', type=int, default=256)
+    parser.add_argument('--src_max_len', type=int, default=256)
+    parser.add_argument('--src_vocab_size', type=int, default=200000)
+    parser.add_argument('--target_max_len', type=int, default=256)
+    parser.add_argument('--target_vocab_size', type=int, default=200000)
     parser.add_argument('--d_model', type=int, default=512)
     parser.add_argument('--repeat_n', type=int, default=6)
     parser.add_argument('--num_heads', type=str, default=8)
     parser.add_argument('--batch_size', type=int, default=2)
-    parser.add_argument('--vocab_size', type=int, default=200000)
     parser.add_argument('--lr', type=int, default=0.001)
 
     args = parser.parse_args()

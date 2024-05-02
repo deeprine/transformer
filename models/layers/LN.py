@@ -1,6 +1,10 @@
 import torch.nn as nn
 import torch
 
+def skip_connection(x, sub_x):
+    x += sub_x
+    return x
+
 class LayerNorm(nn.Module):
     def __init__(self, features, epsilon=1e-5, gamma=1.0, beta=0.0):
         super(LayerNorm, self).__init__()
@@ -10,7 +14,7 @@ class LayerNorm(nn.Module):
         self.beta = nn.Parameter(torch.Tensor(features).fill_(beta))
 
     def forward(self, x, sub_x):
-        x = x + sub_x
+        x = skip_connection(x, sub_x)
 
         mean = x.mean(dim=-1, keepdim=True)
         var = x.var(dim=-1, unbiased=False, keepdim=True)

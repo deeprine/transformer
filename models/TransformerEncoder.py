@@ -30,18 +30,23 @@ class Encoder(nn.Module):
       self.dropout2 = nn.Dropout(0.1)
       self.dropout3 = nn.Dropout(0.1)
 
-    def forward(self, src):
+    def forward(self, src, src_mask, n):
       # src -> (batch_size, seq_len)
-        embedding = self.embedding(src)
+        if n != 0:
+            embedding = src
+
+        if n == 0:
+            embedding = self.embedding(src)
+
+            positional_encoding = self.positional_encoding(src)
+            positional_encoding = torch.einsum('bc->cb', positional_encoding)
+
+            embedding += positional_encoding
+
         embedding = self.dropout1(embedding)
-
-        positional_encoding = self.positional_encoding(src)
-        positional_encoding = torch.einsum('bc->cb', positional_encoding)
-
-        embedding += positional_encoding
         q, k, v = embedding, embedding, embedding
 
-        result, att = self.multi_head_attention(q, k, v)
+        result, att = self.multi_head_attention(q, k, v, is_mask=src_mask)
         result = self.dropout2(result)
         add_norm_1 = self.layer_norm(result, embedding)
 
