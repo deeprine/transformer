@@ -128,7 +128,7 @@ def train(arg):
         print("Average Loss:", avg_loss)
 
 def args():
-    parser = argparse.ArgumentParser(description='image merge')
+    parser = argparse.ArgumentParser(description='transformer hyper parameters')
 
     parser.add_argument('--datasets', type=str, default='/home/yongseong/Downloads/archive/')
     parser.add_argument('--save_model', type=str, default='/home/yongseong/Downloads/archive/save_model')
